@@ -30,7 +30,7 @@ export default function Navbar({ usuario, cotizacionLength, onAbrirAuth, onAbrir
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo-dnf.png"
+            src="/logo-dnf. PNG"
             alt="Logo RETRO GAME DNF"
             className="h-11 sm:h-14 w-auto object-contain drop-shadow-[0_0_8px_rgba(56,189,248,0.5)] group-hover:scale-105 transition"
             onError={(e) => {
