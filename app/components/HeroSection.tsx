@@ -1,6 +1,7 @@
 "use client";
 
 import { Gamepad2 } from "lucide-react";
+import Image from "next/image";
 
 export default function HeroSection() {
   return (
@@ -8,15 +9,17 @@ export default function HeroSection() {
       
       {/* LOGO DE FONDO (MARCA DE AGUA BAJO LAS LETRAS) */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src="/logo-dnf.png"
-          alt=""
+          alt="Logo de fondo"
+          width={600}
+          height={600}
           className="w-[350px] md:w-[600px] h-auto object-contain opacity-10 blur-[1px] select-none"
+          priority
         />
       </div>
 
-      {/* CONTENIDO PRINCIPAL (POR ENCIMA DEL LOGO) */}
+      {/* CONTENIDO PRINCIPAL */}
       <div className="max-w-5xl mx-auto text-center relative z-10">
         
         <span className="inline-flex items-center gap-2 bg-pink-500/10 text-pink-400 border border-pink-500/25 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6">
