@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
+// IMPORTANTE: Importamos Firestore y la conexión de tu lib/firebase.ts
+import { dbFirestore } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
+
 import Navbar from "@/app/components/Navbar";
 import HeroSection from "@/app/components/HeroSection";
 import NuestrosEventos from "./components/NuestrosEventos";
@@ -374,6 +378,118 @@ export default function Home() {
     mostrarNotificacion("Elemento eliminado de la cotización.", "exito");
   };
 
+  // FUNCIÓN PARA GUARDAR EL PEDIDO EN SUPABASE + FIREBASE Y ABRIR WHATSAPP
+  const enviarCotizacionWhatsApp = async () => {
+    if (!usuario) {
+      mostrarNotificacion("Debes iniciar sesión para registrar tu cotización.", "advertencia");
+      return;
+    }
+
+    const subtotalJuegos = cotizacion.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
+    const costoHorasExtra = horasExtra * 100;
+    const fleteAplicado = fueraDeZona ? costoEnvioExtra : 0;
+    const totalGeneral = subtotalJuegos + costoHorasExtra + fleteAplicado;
+
+    // 1. Generar código único de pedido
+    const codigoPedido = `DNF-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // 2. Insertar en Supabase (como lo tienes actualmente)
+    const { data: pedidoCreado, error: errorPedido } = await supabase
+      .from('pedidos')
+      .insert([
+        {
+          codigo_pedido: codigoPedido,
+          nombre_pedido: nombrePedido,
+          telefono: telefonoCliente,
+          fecha_evento: fechaEvento,
+          horario: horarioEvento,
+          estado: estadoUbicacion,
+          ciudad: ciudadUbicacion,
+          colonia: coloniaUbicacion,
+          calle_numero: calleNumero,
+          referencias: referenciaUbicacion,
+          fuera_de_zona: fueraDeZona,
+          subtotal: subtotalJuegos,
+          flete: fleteAplicado,
+          total: totalGeneral,
+          anticipo: totalGeneral * 0.5,
+          estatus_pedido: 'enviada',
+          metodo_pago: 'pendiente',
+          usuario_id: usuario.id
+        }
+      ])
+      .select()
+      .single();
+
+    if (errorPedido) {
+      console.error("Error al guardar el pedido:", errorPedido.message);
+      mostrarNotificacion("Error al registrar el pedido en el sistema.", "error");
+      return;
+    }
+
+    // 3. Insertar items en Supabase
+    const itemsParaInsertar = cotizacion.map((item) => ({
+      pedido_id: pedidoCreado.id,
+      tipo: item.tipo,
+      nombre: item.nombre,
+      precio_unitario: item.precio,
+      cantidad: item.cantidad,
+      detalles: item.detalles || null
+    }));
+
+    await supabase.from('items_pedido').insert(itemsParaInsertar);
+
+    // 4. NUEVO: REPLICAR EN FIREBASE FIRESTORE (Para la App Android)
+    let detalleItemsTexto = cotizacion.map(i => `• ${i.cantidad}x ${i.nombre} ($${i.precio * i.cantidad} MXN)`).join("\n");
+    let ubicacionTexto = `${estadoUbicacion}, ${ciudadUbicacion}, ${coloniaUbicacion}, ${calleNumero}`;
+
+    try {
+      await addDoc(collection(dbFirestore, "cotizaciones_web"), {
+        id: pedidoCreado.id.toString(),
+        nombreCliente: nombrePedido,
+        telefonoCliente: telefonoCliente,
+        fechaEvento: fechaEvento || "Por definir",
+        horarioEvento: horarioEvento,
+        horasExtra: `${horasExtra} hrs`,
+        ubicacion: ubicacionTexto,
+        referencia: referenciaUbicacion || "Sin referencias",
+        juegosDetalle: detalleItemsTexto,
+        subtotal: subtotalJuegos,
+        descuento: 0,
+        flete: fleteAplicado,
+        totalFinal: totalGeneral,
+        anticipoMonto: 0,
+        saldoPendiente: totalGeneral,
+        estado: "PENDIENTE"
+      });
+    } catch (errorFirebase) {
+      console.error("Error guardando en Firestore:", errorFirebase);
+    }
+
+    // 5. Abrir WhatsApp con el formato de mensaje
+    const numeroWhatsApp = "525626784076";
+    let mensaje = `¡Hola! Me interesa cotizar los siguientes juegos de RETRO GAME DNF para mi evento:\n\n` +
+      `*Código de Pedido:* ${codigoPedido}\n` +
+      `*Juegos/Paquetes Seleccionados:*\n${detalleItemsTexto}\n\n` +
+      `*Nombre:* ${nombrePedido}\n` +
+      `*Teléfono:* ${telefonoCliente}\n` +
+      `*Fecha:* ${fechaEvento || "Por definir"}\n` +
+      `*Horario:* ${horarioEvento}\n` +
+      `*Horas Extra:* ${horasExtra} hrs (+$${costoHorasExtra} MXN)\n` +
+      `*Ubicación:* ${ubicacionTexto}\n` +
+      `*Referencia de la zona:* ${referenciaUbicacion}\n\n` +
+      `*Total Estimado:* $${totalGeneral} MXN\n` +
+      `_(Nota: Quedo a la espera de las indicaciones sobre el porcentaje de anticipo)_\n\n` +
+      `¿Me pueden confirmar disponibilidad?`;
+
+    const url = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, "_blank");
+    
+    mostrarNotificacion("¡Cotización enviada y registrada en tu historial!", "exito");
+    setCotizacion([]);
+    setCarritoAbierto(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans relative">
       <AlertaModal alerta={alerta} onCerrar={() => setAlerta(null)} />
@@ -487,6 +603,8 @@ export default function Home() {
         manejarAutenticacion={manejarAutenticacion}
         comprobarVerificacion={comprobarVerificacion}
         mostrarNotificacion={mostrarNotificacion}
+        // Pasamos nuestra función personalizada para que el botón de WhatsApp guarde en Supabase
+        enviarCotizacionWhatsApp={enviarCotizacionWhatsApp} 
       />
     </div>
   );

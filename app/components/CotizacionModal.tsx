@@ -9,7 +9,6 @@ import {
   ArrowRight,
   ArrowLeft,
   Clock,
-  Send,
   MailCheck,
   Lock,
   ChevronDown,
@@ -127,6 +126,7 @@ interface CotizacionModalProps {
   manejarAutenticacion: (e: React.FormEvent) => void;
   comprobarVerificacion: () => void;
   mostrarNotificacion: (msg: string, tipo?: "exito" | "advertencia" | "error") => void;
+  enviarCotizacionWhatsApp: () => void; // <--- Añadido a las props
 }
 
 export default function CotizacionModal({
@@ -174,6 +174,7 @@ export default function CotizacionModal({
   manejarAutenticacion,
   comprobarVerificacion,
   mostrarNotificacion,
+  enviarCotizacionWhatsApp, // <--- Recibido como propiedad
 }: CotizacionModalProps) {
   if (!abierto) return null;
 
@@ -189,29 +190,6 @@ export default function CotizacionModal({
         input.showPicker();
       } catch {}
     }
-  };
-
-  const enviarCotizacionWhatsApp = () => {
-    const numeroWhatsApp = "525626784076"; // Número correcto actualizado
-    let detalleItems = cotizacion.map(i => `• ${i.cantidad}x ${i.nombre} ($${i.precio * i.cantidad} MXN)`).join("\n");
-    
-    let mensaje = `¡Hola! Me interesa cotizar los siguientes juegos de RETRO GAME DNF para mi evento:\n\n` +
-      `*Juegos/Paquetes Seleccionados:*\n${detalleItems}\n\n` +
-      `*Nombre:* ${nombrePedido}\n` +
-      `*Teléfono:* ${telefonoCliente}\n` +
-      `*Fecha:* ${fechaEvento || "Por definir"}\n` +
-      `*Horario:* ${horarioEvento}\n` +
-      `*Horas Extra:* ${horasExtra} hrs (+$${costoHorasExtra} MXN)\n` +
-      `*Ubicación:* ${estadoUbicacion}, ${ciudadUbicacion}, ${coloniaUbicacion}, ${calleNumero}\n` +
-      `*Referencia de la zona:* ${referenciaUbicacion}\n\n` +
-      `*Total Estimado:* $${totalGeneral} MXN\n` +
-      `_(Nota: Quedo a la espera de las indicaciones sobre el porcentaje de anticipo para apartar la fecha)_\n\n` +
-      `¿Me pueden confirmar disponibilidad?`;
-
-    const url = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, "_blank");
-    mostrarNotificacion("¡Redirigiendo a WhatsApp para finalizar tu trato!", "exito");
-    onCerrar();
   };
 
   return (
@@ -678,7 +656,7 @@ export default function CotizacionModal({
               </button>
             ) : (
               <button
-                onClick={enviarCotizacionWhatsApp}
+                onClick={enviarCotizacionWhatsApp} // <--- Vinculado a nuestra función que guarda en Supabase
                 className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black py-3.5 rounded-xl flex items-center justify-center gap-2 uppercase tracking-wider text-xs shadow-lg hover:brightness-110 transition"
               >
                 <MessageCircle size={18} /> Enviar Cotización por WhatsApp
